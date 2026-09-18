@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>山河集 · 美国地形三维图</title>
+<title>USA 3D Terrain Map · Shanheji</title>
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-DP47SS0CG3"></script>
 <script>
   window.dataLayer = window.dataLayer || [];
@@ -65,11 +65,11 @@ html,body{margin:0;height:100%;overflow:hidden;background:#0a1320;
 <body>
 <div id="gl"></div>
 <div id="labels"></div>
-<div id="loading">正在点亮山河 …</div>
+<div id="loading">LIGHTING UP THE TERRAIN …</div>
 
 <div id="titlecard">
-  <h1>山河集 · 美国地形三维图</h1>
-  <div class="sub">LOWER 48 ｜ 真实DEM × 州界 × 五大湖 ｜ <span style="color:#ffd688">v1.0</span></div>
+  <h1>USA · 3D Terrain Map</h1>
+  <div class="sub">LOWER 48 ｜ Real DEM × State Borders × Great Lakes ｜ <span style="color:#ffd688">v1.0</span></div>
   <div class="author">made by <a id="authorLink" href="https://fuge0xsol.github.io/" target="_blank">fuge0xsol</a></div>
 <script>
   (function(){
@@ -82,24 +82,24 @@ html,body{margin:0;height:100%;overflow:hidden;background:#0a1320;
 </div>
 
 <div id="ctrl">
-  <button data-view="hero">全景</button>
-  <button data-view="top">俯瞰</button>
-  <button data-view="west">西望</button>
-  <button id="tRotate">环绕</button>
+  <button data-view="hero">Panorama</button>
+  <button data-view="top">Top-down</button>
+  <button data-view="west">From West</button>
+  <button id="tRotate">Orbit</button>
 </div>
 <div id="count"></div>
 
 <div id="tooltip"></div>
 
-<div id="hint">拖动旋转 · 滚轮缩放 · 悬停查看各州 · 数据全部本地内嵌</div>
+<div id="hint">Drag to rotate · Scroll to zoom · Use the view presets to explore</div>
 <div id="legend">
-  <div style="color:#8fa3b5;font-size:10px;letter-spacing:.2em;margin-bottom:4px">美国地形 · 高程分层</div>
-  <div><span class="sw" style="background:#224030"></span>平原 / 低地 &lt;400m</div>
-  <div><span class="sw" style="background:#6a5a37"></span>山地 1000–3000m（落基山·内华达山）</div>
-  <div><span class="sw" style="background:#cfc4a2"></span>高海拔 &gt;3000m</div>
-  <div><span class="sw" style="background:#2c6d94;height:6px"></span>五大湖</div>
+  <div style="color:#8fa3b5;font-size:10px;letter-spacing:.2em;margin-bottom:4px">US Terrain · Elevation</div>
+  <div><span class="sw" style="background:#224030"></span>Plains / Lowlands &lt;400m</div>
+  <div><span class="sw" style="background:#6a5a37"></span>Mountains 1000–3000m (Rockies · Sierra)</div>
+  <div><span class="sw" style="background:#cfc4a2"></span>High Elevation &gt;3000m</div>
+  <div><span class="sw" style="background:#2c6d94;height:6px"></span>Great Lakes</div>
 </div>
-<div id="credit">地形 高程 AWS Terrain / 影像 Esri·Google · 路网 OpenStreetMap<br>Three.js 单文件渲染 · 数据全部本地内嵌</div>
+<div id="credit">Elevation: AWS Terrain | Borders: OpenStreetMap / Natural Earth<br>Single-file Three.js render · All data embedded locally</div>
 
 <script>/**
  * @license
