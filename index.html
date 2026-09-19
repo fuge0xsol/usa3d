@@ -7,13 +7,13 @@
 <script>
 window.onerror=function(msg,src,line,col){var l=document.getElementById('loading');if(l)l.textContent='ERR '+msg+' @line '+line;};
 </script>
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-205RYZN3KY"></script>
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-DP47SS0CG3"></script>
 <script>
   window.dataLayer = window.dataLayer || [];
   function gtag(){dataLayer.push(arguments);}
   gtag('js', new Date());
 
-  gtag('config', 'G-205RYZN3KY');
+  gtag('config', 'G-DP47SS0CG3');
 </script>
 <style>
 html,body{margin:0;height:100%;overflow:hidden;background:#0a1320;
@@ -67,6 +67,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:#0a1320;
 </head>
 <body>
 <div id="gl"></div>
+<canvas id="leader" style="position:absolute;inset:0;pointer-events:none;"></canvas>
 <div id="labels"></div>
 <div id="loading">LIGHTING UP THE TERRAIN …</div>
 
@@ -1194,6 +1195,7 @@ const tracked=[];
 function addTracked(html,pos,cls,onclick){
   const d=document.createElement('div');
   d.className='lb '+cls; d.innerHTML=html;
+  labelLayer.appendChild(d);
   if(onclick)d.addEventListener('click',onclick);
   const e={el:d,pos:new V3(pos[0],pos[1],pos[2]),pri:cls==='peak'?5:(cls==='state'?2:1),w:0,h:0,
            sx:0,sy:0,lx:0,ly:0};
@@ -1336,12 +1338,18 @@ const beamTex=(function(){
   return new THREE.CanvasTexture(c);
 })();
 const WORKS_CFG=[
- {id:'yosemite',scale:46,alt:64},
+ {id:'yosemite',scale:46,alt:64,tick:95,tileDx:0},
 ];
 const works=[];
 DATA.works.forEach((w,i)=>{
   const cfg=WORKS_CFG.find(k=>k.id===w.id); if(!cfg)return;
   const ax=mx(w.lon), az=mz(w.lat), ay=groundY(ax,az);
+  const tileX=ax+(cfg.tileDx||0);
+  const dem=w.dem, GW2=dem.w, GH2=dem.h;
+  const grid=dem.z; const zmax=Math.max(...grid), zmin=Math.min(...grid);
+  const W=cfg.scale, D=cfg.scale*(GH2/GW2);
+  const peakUnits=(w.elev-40)/(zmax-40)*Math.max(12,W*0.42)+2;
+  const baseY=ay+cfg.alt;
   const ring=new THREE.Mesh(new THREE.RingGeometry(3.4,4.8,40),
     new THREE.MeshBasicMaterial({color:0xffd688,transparent:true,opacity:0.85,side:THREE.DoubleSide,depthWrite:false}));
   ring.rotation.x=-Math.PI/2; ring.position.set(ax,ay+1.0,az); scene.add(ring);
@@ -1356,16 +1364,11 @@ DATA.works.forEach((w,i)=>{
   hit.rotation.x=-Math.PI/2; hit.position.set(ax,ay+2.5,az); hit.userData.work=w;
   scene.add(hit);
   const wt=addTracked('<span class="p1">'+w.name+'</span><span class="p2">'+w.region+' · 海拔'+w.elev+'m</span>',
-             [ax,ay+cfg.tick+2,az],'peak',()=>enterWork(w));
+             [tileX,baseY+peakUnits+14,az],'peak',()=>enterWork(w));
   wt.anchorV3=new V3(ax,ay+1.6,az);
-  const dem=w.dem, GW2=dem.w, GH2=dem.h;
-  const grid=dem.z; const zmax=Math.max(...grid), zmin=Math.min(...grid);
-  const W=cfg.scale, D=cfg.scale*(GH2/GW2);
-  const peakUnits=(w.elev-40)/(zmax-40)*Math.max(12,W*0.42)+2;
   const group=new THREE.Group();
-  const baseY=ay+cfg.alt;
   wt.basePos=ay+cfg.tick+2; wt.riseTo=baseY+peakUnits+10;
-  group.position.set(ax,baseY-26,az);
+  group.position.set(tileX,baseY-26,az);
   const geo=new THREE.PlaneGeometry(W,D,GW2-1,GH2-1);
   geo.rotateX(-Math.PI/2);
   const pos=geo.attributes.position;
@@ -1387,7 +1390,7 @@ DATA.works.forEach((w,i)=>{
     new THREE.LineBasicMaterial({color:0xf0c060,transparent:true,opacity:0}));
   edge.position.y=-4.5; group.add(edge);
   scene.add(group);
-  const top=new V3(ax,baseY-4,az), bot=new V3(ax,ay+1,az);
+  const top=new V3(tileX,baseY-4,az), bot=new V3(ax,ay+1,az);
   const bh=top.distanceTo(bot);
   const beam=new THREE.Mesh(new THREE.CylinderGeometry(2.0,0.8,bh,10,1,true),
     new THREE.MeshBasicMaterial({map:beamTex,color:0xffd688,transparent:true,opacity:0,
@@ -1396,35 +1399,45 @@ DATA.works.forEach((w,i)=>{
   beam.quaternion.setFromUnitVectors(new V3(0,1,0),new V3().subVectors(bot,top).normalize());
   beam.visible=false; scene.add(beam);
   works.push({data:w,group,tile,mat,slabMat,edge,beam,ring,dot,glow,hit,
-              baseY,phase:i*2.1,cfg,state:0,pos:wt.pos,basePos:wt.basePos,riseTo:wt.riseTo});
+              baseY,phase:i*2.1,cfg,state:0,pos:wt.pos,basePos:wt.basePos,riseTo:wt.riseTo,anchorV3:wt.anchorV3});
 });
 function enterWork(w){ window.open(w.cf,'_blank'); }
 
-// ---------- hover / click ----------
-const ray=new THREE.Raycaster(); const mouseNDC=new THREE.Vector2();
+// ---------- hover / click (屏幕空间判定, 稳定可靠) ----------
 let hoverWork=null;
 const tooltip=document.getElementById('tooltip');
-addEventListener('mousemove',e=>{
-  mouseNDC.set(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight)*2+1);
-  ray.setFromCamera(mouseNDC,camera);
-  const hits=ray.intersectObjects(works.map(k=>k.hit));
-  let w=hits.length?(works.find(k=>k.hit===hits[0].object)||null):null;
-  if(!w){
-    const rv=works.filter(k=>k.state>0.5);
-    if(rv.length){
-      const th=ray.intersectObjects(rv.map(k=>k.tile))[0];
-      if(th) w=works.find(k=>k.tile===th.object)||null;
+let mxp=0,myp=0;
+function pickWork(){
+  let best=null,bd=1e9;
+  works.forEach(w=>{
+    if(w.sx===undefined)return;
+    const d=Math.hypot(mxp-w.sx,myp-w.sy);
+    if(d<110&&d<bd){bd=d;best=w;}
+    if(w.state>0.5){
+      const p=w.tile.getWorldPosition(new V3()).project(camera);
+      const px=p.x*innerWidth/2+innerWidth/2, py=-p.y*innerHeight/2+innerHeight/2;
+      const d2=Math.hypot(mxp-px,myp-py);
+      if(d2<110&&d2<bd){bd=d2;best=w;}
     }
+  });
+  return best;
+}
+function updateHover(){
+  const w=pickWork();
+  if(w!==hoverWork){
+    hoverWork=w;
+    document.body.style.cursor=w?'pointer':'default';
   }
   if(w){
     tooltip.style.display='block';
-    tooltip.style.left=(e.clientX>innerWidth-380?e.clientX-340:e.clientX+18)+'px';
-    tooltip.style.top=(e.clientY+16)+'px';
+    tooltip.style.left=(mxp>innerWidth-380?mxp-340:mxp+18)+'px';
+    tooltip.style.top=(myp+16)+'px';
     tooltip.innerHTML='<b>'+w.data.name+'</b> · '+w.data.tag+'<br>'+w.data.region+
       '<br>主峰海拔 '+w.data.elev+' 米 ｜ 跨度 '+w.data.gridKm+' km'+
       '<br><span class="go">点击进入三维实景 ↗</span>';
   } else tooltip.style.display='none';
-});
+}
+addEventListener('mousemove',e=>{ mxp=e.clientX; myp=e.clientY; updateHover(); });
 addEventListener('click',e=>{
   if(e.target.closest('button')||e.target.closest('a'))return;
   if(hoverWork) enterWork(hoverWork.data);
@@ -1452,7 +1465,8 @@ function updateLabels(){
       }
       if(!hit){at=[cx,cy];break;}
     }
-    if(!at){t.el.style.visibility='hidden';continue;}
+    if(!at){t.el.style.visibility='hidden';t.dbg=(t.dbg||0)+1;continue;}
+    t.dbg=(t.dbg||0)+1;
     placed.push({x1:at[0]-t.w/2-pad,x2:at[0]+t.w/2+pad,y1:at[1]-t.h-pad,y2:at[1]});
     t.el.style.visibility='visible';
     t.lx=at[0]; t.ly=at[1];
@@ -1471,6 +1485,21 @@ function updateLabels(){
       const ax2=p.x*innerWidth/2+innerWidth/2, ay2=-p.y*innerHeight/2+innerHeight/2;
       g2.beginPath(); g2.moveTo(t.lx,t.ly); g2.lineTo(ax2,ay2-3); g2.stroke();
     });
+  }
+  if(window.__probe===undefined){
+    window.__probe=0;
+    const iv=setInterval(function(){
+      window.__probe++;
+      var vis=0,hid=0,err=0;
+      tracked.forEach(function(t){
+        if(t.el.style.visibility==='visible')vis++;
+        else if(t.el.style.visibility==='hidden')hid++;
+        if(t.err)err++;
+      });
+      var l=document.getElementById('loading');
+      if(l)l.textContent='vis '+vis+' hid '+hid+' err '+err+' tracked '+tracked.length;
+      if(window.__probe>6)clearInterval(iv);
+    },500);
   }
 }
 
@@ -1527,6 +1556,9 @@ function loop(){
     w.dot.scale.setScalar(1+0.25*Math.sin(tNow*2.2+w.phase));
     w.glow.material.opacity=0.38+0.12*s+0.08*Math.sin(tNow*2.2+w.phase);
     w.pos.y=w.basePos+(w.riseTo-w.basePos)*s;
+    const p3=w.anchorV3.clone().project(camera);
+    w.sx=p3.x*innerWidth/2+innerWidth/2; w.sy=-p3.y*innerHeight/2+innerHeight/2;
+    w.anchorV3scr=[w.sx,w.sy];
   });
   if(fly){
     const k=Math.min(1,(performance.now()-fly.t0)/fly.dur),e=ease(k);
